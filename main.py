@@ -143,11 +143,11 @@ def main():
 				log_it(location, room, f_temp, humi, batt)
 
 				if f_temp <= f_temp_threshold:
-					message = f"\n\nBrrr it's cold!\n{location} {room} is {f_temp}°F."
+					message = f"Brrr it's cold!\n{location} {room} is {f_temp}°F."
 					send_ntfy_msg(ntfy_url, message)
 				
 				if batt < batt_threshold:
-					message = f"\n\nBattery Warning!\n{location} {room} is at {batt}%."
+					message = f"Battery Warning!\n{location} {room} is at {batt}%."
 					send_ntfy_msg(ntfy_url, message)
 	
 	except HTTPError as e:
