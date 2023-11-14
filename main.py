@@ -134,6 +134,7 @@ def main():
 				
 				c_temp = response.json()['data']['temp']
 				f_temp = (c_temp * 9/5) + 32
+				f_temp = float(f"{f_temp:0.2f}")	# built to round keep the float to two decimals during conversion
 				humi = response.json()['data']['humidity']
 				batt = response.json()['data']['battery']
 
