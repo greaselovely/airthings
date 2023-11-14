@@ -18,7 +18,7 @@ This will walk you thru creating the `inventory.json`.
 
 This file is used by `airthings.py` for credentials, inventory and other configuration items.
 
-Then finally, cron `airthings.py`.  I run mine every hour.
+Then finally, cron `main.py`.  I run mine every hour.
 
 ## What this doesn't do
 
