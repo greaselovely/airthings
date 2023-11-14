@@ -33,14 +33,14 @@ airthings_authorisation_url = "https://accounts-api.airthings.com/v1/token"
 token_req_payload = {"grant_type": "client_credentials", "scope": "read:device:current_values",}
 
 
-def log_it(room, f_temp, humi, batt):
+def log_it(location, room, f_temp, humi, batt):
 	"""
 	Used to simply send log file data 
 	to the configured log file above
 	"""
 	now = datetime.now()
 	with open(log_full_path, 'a') as file:
-		file.write(f"{now} - Room:{room}\tTemp:{f_temp}F\tHumidity:{humi}\tBatt:{batt}%\n")
+		file.write(f"{now} - House:{location}\tRoom:{room}\tTemp:{f_temp}F\tHumidity:{humi}\tBatt:{batt}%\n")
 
 def send_ntfy_msg(ntfy_topic, message):
 	"""
@@ -140,7 +140,7 @@ def main():
 
 				# console_output(room, c_temp, f_temp, humi, batt)
 
-				log_it(room, f_temp, humi, batt)
+				log_it(location, room, f_temp, humi, batt)
 
 				if f_temp <= f_temp_threshold:
 					message = f"\n\nBrrr it's cold!\n{location} {room} is {f_temp}°F."
