@@ -40,7 +40,7 @@ def log_it(location, room, f_temp, humi, batt):
 	"""
 	now = datetime.now()
 	with open(log_full_path, 'a') as file:
-		file.write(f"{now} - House:{location}\tRoom:{room}\tTemp:{f_temp}F\tHumidity:{humi}\tBatt:{batt}%\n")
+		file.write(f"{now} - {location} {room}\tTemp:{f_temp}F\tHumidity:{humi}\tBatt:{batt}%\n")
 
 def send_ntfy_msg(ntfy_topic, message):
 	"""
