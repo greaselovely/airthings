@@ -137,7 +137,7 @@ def main():
 				humi = response.json()['data']['humidity']
 				batt = response.json()['data']['battery']
 
-				console_output(room, c_temp, f_temp, humi, batt)
+				# console_output(room, c_temp, f_temp, humi, batt)
 
 				log_it(room, f_temp, humi, batt)
 
