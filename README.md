@@ -4,8 +4,12 @@
 Created to monitor environmental status for various physical properties (houses) and to notify on items below threshold.
 
 First step; go gather your API credentials from https://dashboard.airthings.com
+
 Second step; go get the serial numbers for each monitoring device you want to query against
+
 Third step; go establish or get the name for a subscription topic at https://ntfy.sh
+
+
 
 Run `create_inventory.py`
 
