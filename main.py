@@ -18,6 +18,7 @@ import json
 import logging
 import requests
 import os
+from sys import exit
 from datetime import datetime
 from requests import HTTPError
 
@@ -81,7 +82,7 @@ def read_from_file():
 	except FileNotFoundError:
 		clear()
 		print("File not found. Please run the main script to create the inventory file.")
-		return None
+		exit()
 
 def console_output(*args):
 	"""
