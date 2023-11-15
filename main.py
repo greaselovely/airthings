@@ -90,8 +90,8 @@ def console_output(*args):
 	The function call is normally commented
 	out below.
 	"""
-	room, c_temp, f_temp, humi, batt = args
-	print(f"\t{room}:")
+	location, room, c_temp, f_temp, humi, batt = args
+	print(f"\t{location} {room}:")
 	print(f"\t  Temp: {f_temp}°F / {c_temp}°C")
 	print(f"\t  Humidity: {humi}")
 	print(f"\t  Battery: {batt}%")
@@ -143,7 +143,7 @@ def main():
 				humi = response.json()['data']['humidity']
 				batt = response.json()['data']['battery']
 
-				# console_output(room, c_temp, f_temp, humi, batt)
+				# console_output(location, room, c_temp, f_temp, humi, batt)
 
 				log_it(location, room, f_temp, humi, batt)
 
