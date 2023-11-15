@@ -81,7 +81,7 @@ def read_from_file():
 		return data
 	except FileNotFoundError:
 		clear()
-		print("File not found. Please run the main script to create the inventory file.")
+		print("[!]\tFile not found. Please run create_inventory.py to create the inventory file.\n[i]\tMake sure to have your Airthings dashboard open.")
 		exit()
 
 def console_output(*args):
