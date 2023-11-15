@@ -123,6 +123,8 @@ def main():
 		batt_threshold = inventory_data["battery_threshold"]
 
 	token = airthings_auth()
+	is_sunday = now.weekday() == 6 and now.hour == 17 and now.minute == 0	# boolean
+	sunday_report = "Weekly Report\n"
 	try:
 		api_headers = {"Authorization": f"Bearer {token}"}
 		for location in inventory.keys():
@@ -149,7 +151,13 @@ def main():
 				if batt < batt_threshold:
 					message = f"Battery Warning!\n{location} {room} is at {batt}%."
 					send_ntfy_msg(ntfy_url, message)
-	
+				if is_sunday:
+					message = f"{location} {room} is {f_temp}°F.\n"
+					sunday_report += message
+		if is_sunday:
+			send_ntfy_msg(ntfy_url, sunday_report)
+
+
 	except HTTPError as e:
 		logging.error(e)
 
