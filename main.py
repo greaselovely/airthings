@@ -152,7 +152,7 @@ def main():
 					message = f"Battery Warning!\n{location} {room} is at {batt}%."
 					send_ntfy_msg(ntfy_url, message)
 				if is_sunday:
-					message = f"{location} {room} is {f_temp}°F.\n"
+					message = f"{location} {room} is {f_temp}°F, battery is {batt}%\n"
 					sunday_report += message
 		if is_sunday:
 			send_ntfy_msg(ntfy_url, sunday_report)
