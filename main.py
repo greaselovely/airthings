@@ -13,6 +13,7 @@ https://matthewdavis111.com/python/airthings-api-python/
 
 """
 from pathlib import Path
+from create_inventory import clear
 import json
 import logging
 import requests
@@ -78,6 +79,7 @@ def read_from_file():
 			data = json.load(file)
 		return data
 	except FileNotFoundError:
+		clear()
 		print("File not found. Please run the main script to create the inventory file.")
 		return None
 
