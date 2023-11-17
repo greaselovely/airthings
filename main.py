@@ -84,6 +84,16 @@ def read_from_file():
 		print("[!]\tFile not found. Please run create_inventory.py to create the inventory file.\n[i]\tMake sure to have your Airthings dashboard open.")
 		exit()
 
+def convert_timestamp_to_time(timestamp):
+    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+
+def is_data_stale(timestamp, freshness_threshold_seconds):
+    current_time = datetime.utcnow().timestamp()
+    data_age = current_time - timestamp
+    print(convert_timestamp_to_time(timestamp))
+    return data_age > freshness_threshold_seconds
+
+
 def console_output(*args):
 	"""
 	Used to print out the data locally.  
@@ -96,76 +106,161 @@ def console_output(*args):
 	print(f"\t  Humidity: {humi}")
 	print(f"\t  Battery: {batt}%")
 
+# def main():
+# 	"""
+# 	The is the main function
+# 	that reads inventory data, and 
+# 	then assigns variables from that.
+# 	we retrieve the airthings token, 
+# 	and the iterate over the inventory
+# 	that contains different locations 
+# 	and then specific rooms with the serial
+# 	number for the monitor in that room, 
+# 	and then send the API call to Airthings 
+# 	and collects the data from the API call.
+# 	Temps are returned in Celsius, so we convert
+# 	to Fahrenheit ('merica! /s) and then once we 
+# 	do all of that, check those values
+# 	against the thresholds and send notifications
+# 	as needed.
+# 	"""
+# 	inventory_data = read_from_file()
+# 	global airthings_client_id, airthings_client_secret
+
+# 	if inventory_data:
+# 		inventory = inventory_data["inventory"]
+# 		airthings_client_id = inventory_data["airthings_client_id"]
+# 		airthings_client_secret = inventory_data["airthings_client_secret"]
+# 		ntfy_url = inventory_data["ntfy_url"]
+# 		f_temp_threshold = inventory_data["f_temp_threshold"]
+# 		batt_threshold = inventory_data["battery_threshold"]
+
+# 	freshness_threshold_seconds = 300  # Set your freshness threshold in seconds
+
+# 	token = airthings_auth()
+# 	is_sunday = now.weekday() == 6 and now.hour == 17 and now.minute == 0	# boolean
+# 	sunday_report = "Weekly Report\n"
+# 	try:
+# 		api_headers = {"Authorization": f"Bearer {token}"}
+# 		for location in inventory.keys():
+# 			for room in inventory.get(location):
+# 				device_id = inventory.get(location).get(room)
+# 				device_url = f"https://ext-api.airthings.com/v1/devices/{device_id}/latest-samples"
+
+# 				response = requests.get(url=device_url, headers=api_headers)
+# 				print(response.json())
+				
+# 				c_temp = response.json()['data']['temp']
+# 				f_temp = (c_temp * 9/5) + 32
+# 				f_temp = float(f"{f_temp:0.2f}")	# built to keep the float to two decimals during conversion
+# 				humi = response.json()['data']['humidity']
+# 				batt = response.json()['data']['battery']
+
+				
+
+# 				# console_output(location, room, c_temp, f_temp, humi, batt)
+
+# 				# log_it(location, room, f_temp, humi, batt)
+
+# 				if f_temp <= f_temp_threshold:
+# 					message = f"Brrr it's cold!\n{location} {room} is {f_temp}°F."
+# 					send_ntfy_msg(ntfy_url, message)
+				
+# 				if batt < batt_threshold:
+# 					message = f"Battery Warning!\n{location} {room} is at {batt}%."
+# 					send_ntfy_msg(ntfy_url, message)
+# 				if is_sunday:
+# 					message = f"{location} {room} is {f_temp}°F, battery is {batt}%\n"
+# 					sunday_report += message
+# 		if is_sunday:
+# 			send_ntfy_msg(ntfy_url, sunday_report)
+
+
+# 	except HTTPError as e:
+# 		logging.error(e)
+
+
+
+# if __name__ == "__main__":
+# 	main()
+
 def main():
-	"""
-	The is the main function
-	that reads inventory data, and 
-	then assigns variables from that.
-	we retrieve the airthings token, 
-	and the iterate over the inventory
-	that contains different locations 
-	and then specific rooms with the serial
-	number for the monitor in that room, 
-	and then send the API call to Airthings 
-	and collects the data from the API call.
-	Temps are returned in Celsius, so we convert
-	to Fahrenheit ('merica! /s) and then once we 
-	do all of that, check those values
-	against the thresholds and send notifications
-	as needed.
-	"""
-	inventory_data = read_from_file()
-	global airthings_client_id, airthings_client_secret
+    """
+    The is the main function
+    that reads inventory data, and 
+    then assigns variables from that.
+    we retrieve the airthings token, 
+    and the iterate over the inventory
+    that contains different locations 
+    and then specific rooms with the serial
+    number for the monitor in that room, 
+    and then send the API call to Airthings 
+    and collects the data from the API call.
+    Temps are returned in Celsius, so we convert
+    to Fahrenheit ('merica! /s) and then once we 
+    do all of that, check those values
+    against the thresholds and send notifications
+    as needed.
+    """
+    inventory_data = read_from_file()
+    global airthings_client_id, airthings_client_secret
 
-	if inventory_data:
-		inventory = inventory_data["inventory"]
-		airthings_client_id = inventory_data["airthings_client_id"]
-		airthings_client_secret = inventory_data["airthings_client_secret"]
-		ntfy_url = inventory_data["ntfy_url"]
-		f_temp_threshold = inventory_data["f_temp_threshold"]
-		batt_threshold = inventory_data["battery_threshold"]
+    if inventory_data:
+        inventory = inventory_data["inventory"]
+        airthings_client_id = inventory_data["airthings_client_id"]
+        airthings_client_secret = inventory_data["airthings_client_secret"]
+        ntfy_url = inventory_data["ntfy_url"]
+        f_temp_threshold = inventory_data["f_temp_threshold"]
+        batt_threshold = inventory_data["battery_threshold"]
 
-	token = airthings_auth()
-	is_sunday = now.weekday() == 6 and now.hour == 17 and now.minute == 0	# boolean
-	sunday_report = "Weekly Report\n"
-	try:
-		api_headers = {"Authorization": f"Bearer {token}"}
-		for location in inventory.keys():
-			for room in inventory.get(location):
-				device_id = inventory.get(location).get(room)
-				device_url = f"https://ext-api.airthings.com/v1/devices/{device_id}/latest-samples"
+        freshness_threshold_seconds = 300  # Set your freshness threshold in seconds
 
-				response = requests.get(url=device_url, headers=api_headers)
-				
-				c_temp = response.json()['data']['temp']
-				f_temp = (c_temp * 9/5) + 32
-				f_temp = float(f"{f_temp:0.2f}")	# built to keep the float to two decimals during conversion
-				humi = response.json()['data']['humidity']
-				batt = response.json()['data']['battery']
+        token = airthings_auth()
+        now = datetime.now()
+        is_sunday = now.weekday() == 6 and now.hour == 17 and now.minute == 0  # boolean
+        sunday_report = "Weekly Report\n"
+        try:
+            api_headers = {"Authorization": f"Bearer {token}"}
+            for location in inventory.keys():
+                for room in inventory.get(location):
+                    device_id = inventory.get(location).get(room)
+                    device_url = f"https://ext-api.airthings.com/v1/devices/{device_id}/latest-samples"
 
-				# console_output(location, room, c_temp, f_temp, humi, batt)
+                    response = requests.get(url=device_url, headers=api_headers)
 
-				log_it(location, room, f_temp, humi, batt)
+                    timestamp = response.json()['data']['time']
+                    
+                    if is_data_stale(timestamp, freshness_threshold_seconds):
+                        print(f"Data for {location} {room} is stale.")
+                        # You can handle stale data here, for example, skip processing or send a notification.
 
-				if f_temp <= f_temp_threshold:
-					message = f"Brrr it's cold!\n{location} {room} is {f_temp}°F."
-					send_ntfy_msg(ntfy_url, message)
-				
-				if batt < batt_threshold:
-					message = f"Battery Warning!\n{location} {room} is at {batt}%."
-					send_ntfy_msg(ntfy_url, message)
-				if is_sunday:
-					message = f"{location} {room} is {f_temp}°F, battery is {batt}%\n"
-					sunday_report += message
-		if is_sunday:
-			send_ntfy_msg(ntfy_url, sunday_report)
+                    c_temp = response.json()['data']['temp']
+                    f_temp = (c_temp * 9/5) + 32
+                    f_temp = float(f"{f_temp:0.2f}")  # built to keep the float to two decimals during conversion
+                    humi = response.json()['data']['humidity']
+                    batt = response.json()['data']['battery']
 
+                    console_output(location, room, c_temp, f_temp, humi, batt)
 
-	except HTTPError as e:
-		logging.error(e)
+                    log_it(location, room, f_temp, humi, batt)
 
+                    if f_temp <= f_temp_threshold:
+                        message = f"Brrr it's cold!\n{location} {room} is {f_temp}°F."
+                        send_ntfy_msg(ntfy_url, message)
+                    
+                    if batt < batt_threshold:
+                        message = f"Battery Warning!\n{location} {room} is at {batt}%."
+                        send_ntfy_msg(ntfy_url, message)
 
+                    if is_sunday:
+                        message = f"{location} {room} is {f_temp}°F, battery is {batt}%\n"
+                        sunday_report += message
+
+            if is_sunday:
+                send_ntfy_msg(ntfy_url, sunday_report)
+
+        except HTTPError as e:
+            logging.error(e)
 
 if __name__ == "__main__":
-	main()
-
+    main()
