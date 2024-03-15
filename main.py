@@ -1,30 +1,14 @@
-#!/usr/bin/env python
-
-"""
-Authenticate to the Airthings API and get the latest data from a particular device.
-Requires an API client created in the web gui: https://dashboard.airthings.com/integrations/api-integration
-Update script with client id and device id which can be retrieved from the devices page: https://dashboard.airthings.com/devices
-export the api secret to an environment variable called secret (Bash export secret="secret-key"
-Requires the requests package (pip install requests into the virutal environment of container).
-Python version 3.6 or above needed for f strings.
-Matthew Davis July 2022
-
-https://matthewdavis111.com/python/airthings-api-python/
-
-"""
-from pathlib import Path
-from create_inventory import clear
+import os
 import json
 import logging
 import requests
-import os
-from sys import exit
-from datetime import datetime
-from requests import HTTPError
+from pathlib import Path
+from create_inventory import clear
+from datetime import datetime, timezone
+from logging.handlers import RotatingFileHandler
 
 inventory = "inventory.json"
 log_file_name = "airthings.log"
-
 home = os.path.expanduser('~')
 log_path = os.path.join(home, "airthings")
 log_full_path = os.path.join(log_path, log_file_name)
@@ -34,233 +18,218 @@ now = datetime.now()
 airthings_authorisation_url = "https://accounts-api.airthings.com/v1/token"
 token_req_payload = {"grant_type": "client_credentials", "scope": "read:device:current_values",}
 
+# Logging configuration
+log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+log_handler = RotatingFileHandler(log_full_path, maxBytes=524288, backupCount=5)
+log_handler.setFormatter(log_formatter)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(log_handler)
 
-def log_it(location, room, f_temp, humi, batt):
-	"""
-	Used to simply send log file data 
-	to the configured log file above
-	"""
-	now = datetime.now()
-	with open(log_full_path, 'a') as file:
-		file.write(f"{now} - {location} {room}\tTemp:{f_temp}F\tHumidity:{humi}\tBatt:{batt}%\n")
-
-def send_ntfy_msg(ntfy_topic, message):
-	"""
-	Used to send messages to ntfy.sh
-	We are only expecting the subscribed topic name
-	and not the entire URL as we are prepending
-	the url to the ntfy topic provided
-	"""
-	url = f"https://ntfy.sh/{ntfy_topic}"
-	message = message.encode(encoding="utf-8")
-	requests.post(url, message)
+def send_ntfy_msg(ntfy_topic: str, message: str):
+    """
+    Sends a message to a specified ntfy.sh topic.
+    
+    Parameters:
+    - ntfy_topic (str): The topic name on ntfy.sh to which the message will be sent.
+    - message (str): The message content to send.
+    
+    This function constructs the full URL for the ntfy.sh topic and sends the message
+    as a POST request. The message is encoded in UTF-8, and appropriate content-type
+    headers are included in the request.
+    """
+    url = f"https://ntfy.sh/{ntfy_topic}"
+    headers = {'Content-Type': 'text/plain; charset=utf-8'}
+    
+    try:
+        response = requests.post(url, data=message.encode('utf-8'), headers=headers)
+        response.raise_for_status()  # Raises stored HTTPError, if one occurred.
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Failed to send message to {ntfy_topic}: {e}")
 
 def airthings_auth():
-	"""
-	Request Access Token from auth server
-	returns the token for the query
-	"""
-	try:
-		token_response = requests.post(airthings_authorisation_url, data=token_req_payload, allow_redirects=False, auth=(airthings_client_id, airthings_client_secret))
-		token = token_response.json()["access_token"]
-		return token
-	except HTTPError as e:
-		print(logging.error(e))
+    """
+    Request an access token from the Airthings authorization server.
 
+    This function attempts to obtain an access token using the Airthings client ID and secret.
+    It posts a request to the Airthings authorization URL with the necessary payload.
 
-def read_from_file():
-	"""
-	This is used to go grab the json 
-	file and read the inventory, credentials
-	and other data from that file
-	"""
-	file_path = Path(__file__).resolve().parent / inventory
-	try:
-		with open(file_path, "r") as file:
-			data = json.load(file)
-		return data
-	except FileNotFoundError:
-		clear()
-		print("[!]\tFile not found. Please run create_inventory.py to create the inventory file.\n[i]\tMake sure to have your Airthings dashboard open.")
-		exit()
+    Returns:
+        str: The access token as a string if the request is successful.
+        None: If the request fails due to any exception, None is returned.
+
+    Raises:
+        Logs an error message if the request fails for any reason.
+    """
+    try:
+        token_response = requests.post(airthings_authorisation_url, data=token_req_payload, allow_redirects=False, auth=(airthings_client_id, airthings_client_secret))
+        token_response.raise_for_status()  # This will raise an exception for HTTP errors.
+        token = token_response.json().get("access_token")
+        return token
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Failed to obtain Airthings access token: {e}")
+        return None
+
+def read_from_file(file_name):
+    """
+    Reads and returns the contents of a JSON file located in the same directory as this script.
+
+    This function attempts to open and read the specified JSON file, parsing its contents into a dictionary.
+    
+    Args:
+        file_name (str): The name of the file to read. The file should be located in the same directory as this script.
+    
+    Returns:
+        dict: The contents of the JSON file parsed into a dictionary.
+        
+    Raises:
+        FileNotFoundError: If the specified file does not exist.
+        json.JSONDecodeError: If the file content is not valid JSON.
+    """
+    file_path = Path(__file__).resolve().parent / file_name
+    with open(file_path, "r") as file:
+        return json.load(file)
+
 
 def convert_timestamp_to_time(timestamp):
-    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+    """
+    Convert a UNIX timestamp to a formatted string representation.
+    """
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
-def is_data_stale(timestamp, freshness_threshold_seconds):
-    current_time = datetime.utcnow().timestamp()
-    data_age = current_time - timestamp
-    print(convert_timestamp_to_time(timestamp))
-    return data_age > freshness_threshold_seconds
+def is_data_stale(timestamp: int, freshness_threshold_seconds: int = 3600) -> bool:
+    """
+    Check if the data, based on the given timestamp, is considered stale.
+    A data point is stale if its age is greater than or equal to the freshness threshold.
+    The timestamp is assumed to be in UNIX format (seconds since the epoch).
+    
+    :param timestamp: The timestamp of the data.
+    :param freshness_threshold_seconds: The threshold in seconds to consider data stale (default is 3600 seconds or 1 hour).
+    :return: True if the data is stale, False otherwise.
+    """
+    current_time = datetime.now(timezone.utc).timestamp() # Current time in UTC as a timestamp
+    data_age_seconds = current_time - timestamp # Calculate the age of the data in seconds
+    
+    # Optionally, convert and print the timestamp for debugging or logging
+    # print(f"Data timestamp: {convert_timestamp_to_time(timestamp)}")
+    
+    # Determine if the data is stale
+    return data_age_seconds >= freshness_threshold_seconds
 
+def console_output(location, room, c_temp, f_temp, humi, batt):
+    """
+    Prints out environmental data for a given location and room.
 
-def console_output(*args):
-	"""
-	Used to print out the data locally.  
-	The function call is normally commented
-	out below.
-	"""
-	location, room, c_temp, f_temp, humi, batt = args
-	print(f"\t{location} {room}:")
-	print(f"\t  Temp: {f_temp}°F / {c_temp}°C")
-	print(f"\t  Humidity: {humi}")
-	print(f"\t  Battery: {batt}%")
+    This function formats and displays temperature (in both Fahrenheit and Celsius),
+    humidity, and battery level for a specific location and room.
 
-# def main():
-# 	"""
-# 	The is the main function
-# 	that reads inventory data, and 
-# 	then assigns variables from that.
-# 	we retrieve the airthings token, 
-# 	and the iterate over the inventory
-# 	that contains different locations 
-# 	and then specific rooms with the serial
-# 	number for the monitor in that room, 
-# 	and then send the API call to Airthings 
-# 	and collects the data from the API call.
-# 	Temps are returned in Celsius, so we convert
-# 	to Fahrenheit ('merica! /s) and then once we 
-# 	do all of that, check those values
-# 	against the thresholds and send notifications
-# 	as needed.
-# 	"""
-# 	inventory_data = read_from_file()
-# 	global airthings_client_id, airthings_client_secret
+    Args:
+        location (str): The name of the location.
+        room (str): The name of the room within the location.
+        c_temp (float or int): The temperature in degrees Celsius.
+        f_temp (float or int): The temperature in degrees Fahrenheit.
+        humi (float or int): The humidity percentage.
+        batt (float or int): The battery level percentage.
 
-# 	if inventory_data:
-# 		inventory = inventory_data["inventory"]
-# 		airthings_client_id = inventory_data["airthings_client_id"]
-# 		airthings_client_secret = inventory_data["airthings_client_secret"]
-# 		ntfy_url = inventory_data["ntfy_url"]
-# 		f_temp_threshold = inventory_data["f_temp_threshold"]
-# 		batt_threshold = inventory_data["battery_threshold"]
+    """
+    print(f"\t{location} {room}:")
+    print(f"\t  Temp: {f_temp}°F / {c_temp}°C")
+    print(f"\t  Humidity: {humi}%")
+    print(f"\t  Battery: {batt}%")
 
-# 	freshness_threshold_seconds = 300  # Set your freshness threshold in seconds
+def fetch_device_data(device_id, api_headers):
+    """
+    Fetches the latest samples for a device from the Airthings API.
+    
+    Args:
+        device_id (str): The unique identifier for the Airthings device.
+        api_headers (dict): Authorization headers for the API request.
+    
+    Returns:
+        dict: The latest data samples from the device.
+    """
+    device_url = f"https://ext-api.airthings.com/v1/devices/{device_id}/latest-samples"
+    response = requests.get(url=device_url, headers=api_headers)
+    response.raise_for_status()  # This will raise an exception for HTTP errors.
+    return response.json()['data']
 
-# 	token = airthings_auth()
-# 	is_sunday = now.weekday() == 6 and now.hour == 17 and now.minute == 0	# boolean
-# 	sunday_report = "Weekly Report\n"
-# 	try:
-# 		api_headers = {"Authorization": f"Bearer {token}"}
-# 		for location in inventory.keys():
-# 			for room in inventory.get(location):
-# 				device_id = inventory.get(location).get(room)
-# 				device_url = f"https://ext-api.airthings.com/v1/devices/{device_id}/latest-samples"
+def process_device_data(location, room, device_data, thresholds, ntfy_url, is_sunday, sunday_report):
+    """
+    Processes and logs data for a single device, sending notifications if necessary.
 
-# 				response = requests.get(url=device_url, headers=api_headers)
-# 				print(response.json())
-				
-# 				c_temp = response.json()['data']['temp']
-# 				f_temp = (c_temp * 9/5) + 32
-# 				f_temp = float(f"{f_temp:0.2f}")	# built to keep the float to two decimals during conversion
-# 				humi = response.json()['data']['humidity']
-# 				batt = response.json()['data']['battery']
+    Args:
+        location (str): The location of the device.
+        room (str): The room where the device is located.
+        device_data (dict): The latest data samples from the device.
+        thresholds (dict): Thresholds for temperature and battery.
+        ntfy_url (str): The URL for sending notifications.
+        is_sunday (bool): Whether it's time for the weekly report.
+        sunday_report (str): The weekly report string, accumulating information.
+    
+    Returns:
+        str: Updated sunday_report.
+    """
+    timestamp, c_temp, humi, batt = device_data['time'], device_data['temp'], device_data['humidity'], device_data['battery']
+    
+    if is_data_stale(timestamp, thresholds['freshness_threshold_seconds']):
+        message = f"Data for {location} {room} is stale."
+        send_ntfy_msg(ntfy_url, message)
+    
+    f_temp = (c_temp * 9/5) + 32
+    f_temp = float(f"{f_temp:0.2f}")  # Keep float to two decimals
+    console_output(location, room, c_temp, f_temp, humi, batt)
+    logging.info(f"{location} {room} - Temp:{f_temp} Humdity:{humi} Batt:{batt}")
 
-				
+    if f_temp <= thresholds['f_temp_threshold']:
+        message = f"Brrr it's cold!\n{location} {room} is {f_temp}°F."
+        send_ntfy_msg(ntfy_url, message)
+    
+    if batt < thresholds['batt_threshold']:
+        message = f"Battery Warning!\n{location} {room} is at {batt}%."
+        send_ntfy_msg(ntfy_url, message)
 
-# 				# console_output(location, room, c_temp, f_temp, humi, batt)
-
-# 				# log_it(location, room, f_temp, humi, batt)
-
-# 				if f_temp <= f_temp_threshold:
-# 					message = f"Brrr it's cold!\n{location} {room} is {f_temp}°F."
-# 					send_ntfy_msg(ntfy_url, message)
-				
-# 				if batt < batt_threshold:
-# 					message = f"Battery Warning!\n{location} {room} is at {batt}%."
-# 					send_ntfy_msg(ntfy_url, message)
-# 				if is_sunday:
-# 					message = f"{location} {room} is {f_temp}°F, battery is {batt}%\n"
-# 					sunday_report += message
-# 		if is_sunday:
-# 			send_ntfy_msg(ntfy_url, sunday_report)
-
-
-# 	except HTTPError as e:
-# 		logging.error(e)
-
-
-
-# if __name__ == "__main__":
-# 	main()
+    if is_sunday:
+        sunday_report += f"{location} {room} is {f_temp}°F, battery is {batt}%\n"
+    
+    return sunday_report
 
 def main():
     """
-    The is the main function
-    that reads inventory data, and 
-    then assigns variables from that.
-    we retrieve the airthings token, 
-    and the iterate over the inventory
-    that contains different locations 
-    and then specific rooms with the serial
-    number for the monitor in that room, 
-    and then send the API call to Airthings 
-    and collects the data from the API call.
-    Temps are returned in Celsius, so we convert
-    to Fahrenheit ('merica! /s) and then once we 
-    do all of that, check those values
-    against the thresholds and send notifications
-    as needed.
+    Main function to orchestrate the flow of reading inventory data,
+    fetching and processing Airthings device data, handling temperature
+    conversions, checking data freshness, and sending notifications as necessary.
     """
-    inventory_data = read_from_file()
     global airthings_client_id, airthings_client_secret
+    inventory_data = read_from_file('inventory.json')  # Ensure this function accepts a filename argument
+    
+    if not inventory_data:
+        logging.error("Inventory data is not available. Please check the file.")
+        return
 
-    if inventory_data:
-        inventory = inventory_data["inventory"]
-        airthings_client_id = inventory_data["airthings_client_id"]
-        airthings_client_secret = inventory_data["airthings_client_secret"]
-        ntfy_url = inventory_data["ntfy_url"]
-        f_temp_threshold = inventory_data["f_temp_threshold"]
-        batt_threshold = inventory_data["battery_threshold"]
+    airthings_client_id, airthings_client_secret = inventory_data["airthings_client_id"], inventory_data["airthings_client_secret"]
 
-        freshness_threshold_seconds = 300  # Set your freshness threshold in seconds
+    thresholds = {
+        'freshness_threshold_seconds': 3600,  # Freshness threshold in seconds
+        'f_temp_threshold': inventory_data["f_temp_threshold"],
+        'batt_threshold': inventory_data["battery_threshold"]
+    }
 
-        token = airthings_auth()
-        now = datetime.now()
-        is_sunday = now.weekday() == 6 and now.hour == 17 and now.minute == 0  # boolean
-        sunday_report = "Weekly Report\n"
-        try:
-            api_headers = {"Authorization": f"Bearer {token}"}
-            for location in inventory.keys():
-                for room in inventory.get(location):
-                    device_id = inventory.get(location).get(room)
-                    device_url = f"https://ext-api.airthings.com/v1/devices/{device_id}/latest-samples"
-
-                    response = requests.get(url=device_url, headers=api_headers)
-
-                    timestamp = response.json()['data']['time']
-                    
-                    if is_data_stale(timestamp, freshness_threshold_seconds):
-                        print(f"Data for {location} {room} is stale.")
-                        # You can handle stale data here, for example, skip processing or send a notification.
-
-                    c_temp = response.json()['data']['temp']
-                    f_temp = (c_temp * 9/5) + 32
-                    f_temp = float(f"{f_temp:0.2f}")  # built to keep the float to two decimals during conversion
-                    humi = response.json()['data']['humidity']
-                    batt = response.json()['data']['battery']
-
-                    console_output(location, room, c_temp, f_temp, humi, batt)
-
-                    log_it(location, room, f_temp, humi, batt)
-
-                    if f_temp <= f_temp_threshold:
-                        message = f"Brrr it's cold!\n{location} {room} is {f_temp}°F."
-                        send_ntfy_msg(ntfy_url, message)
-                    
-                    if batt < batt_threshold:
-                        message = f"Battery Warning!\n{location} {room} is at {batt}%."
-                        send_ntfy_msg(ntfy_url, message)
-
-                    if is_sunday:
-                        message = f"{location} {room} is {f_temp}°F, battery is {batt}%\n"
-                        sunday_report += message
-
-            if is_sunday:
-                send_ntfy_msg(ntfy_url, sunday_report)
-
-        except HTTPError as e:
-            logging.error(e)
+    token = airthings_auth()  # Ensure this is defined to handle token fetching
+    api_headers = {"Authorization": f"Bearer {token}"}
+    now = datetime.now()
+    is_sunday = now.weekday() == 6 and now.hour == 17 and now.minute == 0  # Check for Sunday at 17:00
+    sunday_report = "Weekly Report\n"
+    
+    try:
+        for location, rooms in inventory_data["inventory"].items():
+            for room, device_id in rooms.items():
+                device_data = fetch_device_data(device_id, api_headers)
+                sunday_report = process_device_data(location, room, device_data, thresholds, inventory_data["ntfy_url"], is_sunday, sunday_report)
+        
+        if is_sunday:
+            send_ntfy_msg(inventory_data["ntfy_url"], sunday_report)
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error fetching device data: {e}")
 
 if __name__ == "__main__":
     main()
