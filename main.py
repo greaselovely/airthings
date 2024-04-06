@@ -178,7 +178,7 @@ def process_device_data(location, room, device_data, thresholds, ntfy_url, is_su
     f_temp = (c_temp * 9/5) + 32
     f_temp = float(f"{f_temp:0.2f}")  # Keep float to two decimals
     console_output(location, room, c_temp, f_temp, humi, batt)
-    logging.info(f"{location} {room} - Temp:{f_temp} Humdity:{humi} Batt:{batt}")
+    logging.info(f"{location} {room} - Temp:{f_temp} Humidity:{humi} Batt:{batt}")
 
     if f_temp <= thresholds['f_temp_threshold']:
         message = f"Brrr it's cold!\n{location} {room} is {f_temp}°F."
