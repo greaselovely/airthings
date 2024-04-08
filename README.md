@@ -26,13 +26,22 @@ Establish a notification channel:
 - Note down the topic name for later use.
 
 ### 4. Create Inventory File
-Run the `create_inventory.py` script to generate your `inventory.json` file. This script will guide you through entering:
-- The names and number of properties.
-- Room names within each property.
-- Serial numbers of the Airthings devices in each room.
-- Your Airthings API credentials.
-- The ntfy.sh subscription topic name.
-- Threshold values for temperature and battery level alerts.
+To generate your `inventory.json` file, you'll need to run the `inventory.py` script. This interactive script will guide you through the setup process, including:
+
+- Entering the names and the number of properties you wish to monitor.
+- Specifying the room names within each property.
+- Inputting the serial numbers for the Airthings devices located in each room.
+- Providing your Airthings API credentials (`client_id` and `client_secret`).
+- Specifying the ntfy.sh subscription topic name for receiving alerts.
+- Setting threshold values for environmental parameters (e.g., temperature and battery level) to trigger alerts.
+
+Follow the prompts to input your data. If an `inventory.json` file already exists, the script will offer options to add more houses or rooms and update device information or thresholds without overwriting your existing setup.
+
+#### Example:
+
+```
+python inventory.py
+```
 
 ### 5. Schedule Monitoring Script
 Set up a cron job or a scheduled task to run `main.py` regularly. For example, to run the script hourly, you can add the following to your crontab (on Linux or macOS):
