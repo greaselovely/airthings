@@ -70,7 +70,7 @@ def airthings_auth():
         logging.error(f"Failed to obtain Airthings access token: {e}")
         return None
 
-def read_from_file(file_name):
+def read_inventory(file_name):
     """
     Reads and returns the contents of a JSON file located in the same directory as this script.
 
@@ -200,7 +200,7 @@ def main():
     conversions, checking data freshness, and sending notifications as necessary.
     """
     global airthings_client_id, airthings_client_secret
-    inventory_data = read_from_file('inventory.json')  # Ensure this function accepts a filename argument
+    inventory_data = read_inventory('inventory.json')  # Ensure this function accepts a filename argument
     
     if not inventory_data:
         logging.error("Inventory data is not available. Please check the file.")
