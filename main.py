@@ -3,7 +3,7 @@ import json
 import logging
 import requests
 from pathlib import Path
-from create_inventory import clear
+from inventory import clear
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 
