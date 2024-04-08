@@ -90,7 +90,6 @@ def read_inventory(file_name):
     with open(file_path, "r") as file:
         return json.load(file)
 
-
 def convert_timestamp_to_time(timestamp):
     """
     Convert a UNIX timestamp to a formatted string representation.
@@ -153,7 +152,7 @@ def fetch_device_data(device_id, api_headers):
     response.raise_for_status()  # This will raise an exception for HTTP errors.
     return response.json()['data']
 
-def process_device_data(location, room, device_data, thresholds, ntfy_url, is_sunday, sunday_report):
+def process_device_data(location, room, device_data, thresholds, ntfy_url, is_sunday):
     """
     Processes and logs data for a single device, sending notifications if necessary.
 
@@ -169,13 +168,14 @@ def process_device_data(location, room, device_data, thresholds, ntfy_url, is_su
     Returns:
         str: Updated sunday_report.
     """
+    global sunday_report
     timestamp, c_temp, humi, batt = device_data['time'], device_data['temp'], device_data['humidity'], device_data['battery']
     
+    stale_message = ""
     if is_data_stale(timestamp, thresholds['freshness_threshold_seconds']):
-        message = f"Data for {location} {room} is stale."
-        send_ntfy_msg(ntfy_url, message)
+        stale_message = f"{location} {room} is not reporting."
     
-    f_temp = (c_temp * 9/5) + 32
+    f_temp = (c_temp * 9 / 5) + 32
     f_temp = float(f"{f_temp:0.2f}")  # Keep float to two decimals
     console_output(location, room, c_temp, f_temp, humi, batt)
     logging.info(f"{location} {room} - Temp:{f_temp} Humidity:{humi} Batt:{batt}")
@@ -191,7 +191,7 @@ def process_device_data(location, room, device_data, thresholds, ntfy_url, is_su
     if is_sunday:
         sunday_report += f"{location} {room} is {f_temp}°F, battery is {batt}%\n"
     
-    return sunday_report
+    return stale_message
 
 def main():
     """
@@ -199,7 +199,7 @@ def main():
     fetching and processing Airthings device data, handling temperature
     conversions, checking data freshness, and sending notifications as necessary.
     """
-    global airthings_client_id, airthings_client_secret
+    global airthings_client_id, airthings_client_secret, sunday_report
     inventory_data = read_inventory('inventory.json')  # Ensure this function accepts a filename argument
     
     if not inventory_data:
@@ -218,16 +218,27 @@ def main():
     api_headers = {"Authorization": f"Bearer {token}"}
     now = datetime.now()
     is_sunday = now.weekday() == 6 and now.hour == 17 and now.minute == 0  # Check for Sunday at 17:00
-    sunday_report = "Weekly Report\n"
     
+    stale_data_messages = []  # Initialize an empty list to hold stale data messages
+    sunday_report = "Weekly Report\n"  # Initialize sunday_report outside of the loop
+
     try:
         for location, rooms in inventory_data["inventory"].items():
             for room, device_id in rooms.items():
                 device_data = fetch_device_data(device_id, api_headers)
-                sunday_report = process_device_data(location, room, device_data, thresholds, inventory_data["ntfy_url"], is_sunday, sunday_report)
+                
+                stale_message = process_device_data(location, room, device_data, thresholds, inventory_data["ntfy_url"], is_sunday)
+
+                if stale_message:  
+                    stale_data_messages.append(stale_message)
         
         if is_sunday:
             send_ntfy_msg(inventory_data["ntfy_url"], sunday_report)
+
+        if stale_data_messages:
+            consolidated_message = "Stale Data Notification:\n" + "\n".join(stale_data_messages)
+            send_ntfy_msg(inventory_data["ntfy_url"], consolidated_message)
+
     except requests.exceptions.RequestException as e:
         logging.error(f"Error fetching device data: {e}")
 
