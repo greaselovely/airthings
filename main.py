@@ -205,7 +205,8 @@ def main():
     if not inventory_data:
         logging.error("Inventory data is not available. Please check the file.")
         return
-
+    send_ntfy_msg("Script Started...")
+    
     airthings_client_id, airthings_client_secret = inventory_data["airthings_client_id"], inventory_data["airthings_client_secret"]
 
     thresholds = {
