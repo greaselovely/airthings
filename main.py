@@ -9,6 +9,7 @@ from logging.handlers import RotatingFileHandler
 
 # Use custom CA bundle path
 CERT_PATH = '/usr/local/share/ca-certificates/extra/cert_trust-decrypt.crt'
+os.environ['REQUESTS_CA_BUNDLE'] = CERT_PATH
 
 print(f"Using CA Bundle at: {CERT_PATH}")
 
@@ -44,6 +45,7 @@ def airthings_auth():
         token_response = requests.post(airthings_authorisation_url, data=token_req_payload, allow_redirects=False, auth=(airthings_client_id, airthings_client_secret), verify=CERT_PATH)
         token_response.raise_for_status()
         token = token_response.json().get("access_token")
+        print("Token retrieved successfully:", token)  # Debugging information
         return token
     except requests.exceptions.RequestException as e:
         logging.error(f"Failed to obtain Airthings access token: {e}")
@@ -70,9 +72,13 @@ def console_output(location, room, c_temp, f_temp, humi, batt):
 
 def fetch_device_data(device_id, api_headers):
     device_url = f"https://ext-api.airthings.com/v1/devices/{device_id}/latest-samples"
-    response = requests.get(url=device_url, headers=api_headers, verify=CERT_PATH)
-    response.raise_for_status()
-    return response.json()['data']
+    try:
+        response = requests.get(url=device_url, headers=api_headers, verify=CERT_PATH)
+        response.raise_for_status()
+        return response.json()['data']
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error fetching device data for {device_id}: {e}")
+        return None
 
 def process_device_data(location, room, device_data, thresholds, ntfy_url, is_sunday):
     global sunday_report
@@ -95,55 +101,4 @@ def process_device_data(location, room, device_data, thresholds, ntfy_url, is_su
         message = f"Battery Warning!\n{location} {room} is at {batt}%."
         send_ntfy_msg(ntfy_url, message)
 
-    if is_sunday:
-        sunday_report += f"{location} {room} is {f_temp}°F, battery is {batt}%\n"
-    
-    return stale_message
-
-def main():
-    global airthings_client_id, airthings_client_secret, sunday_report
-    inventory_data = read_inventory('inventory.json')
-    
-    if not inventory_data:
-        logging.error("Inventory data is not available. Please check the file.")
-        return
-    send_ntfy_msg(inventory_data["ntfy_url"], "Script Started...")
-    
-    airthings_client_id, airthings_client_secret = inventory_data["airthings_client_id"], inventory_data["airthings_client_secret"]
-
-    thresholds = {
-        'freshness_threshold_seconds': 3600,
-        'f_temp_threshold': inventory_data["f_temp_threshold"],
-        'batt_threshold': inventory_data["battery_threshold"]
-    }
-
-    token = airthings_auth()
-    api_headers = {"Authorization": f"Bearer {token}"}
-    now = datetime.now()
-    is_sunday = now.weekday() == 6 and now.hour == 17 and now.minute == 0
-    
-    stale_data_messages = []
-    sunday_report = "Weekly Report\n"
-
-    try:
-        for location, rooms in inventory_data["inventory"].items():
-            for room, device_id in rooms.items():
-                device_data = fetch_device_data(device_id, api_headers)
-                
-                stale_message = process_device_data(location, room, device_data, thresholds, inventory_data["ntfy_url"], is_sunday)
-
-                if stale_message:
-                    stale_data_messages.append(stale_message)
-        
-        if is_sunday:
-            send_ntfy_msg(inventory_data["ntfy_url"], sunday_report)
-
-        if stale_data_messages:
-            consolidated_message = "Stale Data Notification:\n" + "\n".join(stale_data_messages)
-            send_ntfy_msg(inventory_data["ntfy_url"], consolidated_message)
-
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Error fetching device data: {e}")
-
-if __name__ == "__main__":
-    main()
+    if is_s
