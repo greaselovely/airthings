@@ -6,9 +6,8 @@ from pathlib import Path
 from inventory import clear
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
-import certifi
 
-# Use certifi for the CA bundle or explicitly set your custom path
+# Use custom CA bundle path
 CERT_PATH = '/usr/local/share/ca-certificates/extra/cert_trust-decrypt.crt'
 
 print(f"Using CA Bundle at: {CERT_PATH}")
@@ -19,10 +18,9 @@ home = os.path.expanduser('~')
 log_path = os.path.join(home, "airthings")
 log_full_path = os.path.join(log_path, log_file_name)
 os.makedirs(log_path, exist_ok=True)
-now = datetime.now()
 
 airthings_authorisation_url = "https://accounts-api.airthings.com/v1/token"
-token_req_payload = {"grant_type": "client_credentials", "scope": "read:device:current_values",}
+token_req_payload = {"grant_type": "client_credentials", "scope": "read:device:current_values"}
 
 # Logging configuration
 log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
