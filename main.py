@@ -11,7 +11,7 @@ import certifi
 # Use certifi's CA bundle
 CERT_PATH = certifi.where()
 
-print(f"Using CA Bundle at: {CERT_PATH}")
+# print(f"Using CA Bundle at: {CERT_PATH}")
 
 inventory = "inventory.json"
 log_file_name = "airthings.log"
@@ -113,7 +113,6 @@ def main():
     if not inventory_data:
         logging.error("Inventory data is not available. Please check the file.")
         return
-    send_ntfy_msg(inventory_data["ntfy_url"], "Script Started...")
     
     airthings_client_id, airthings_client_secret = inventory_data["airthings_client_id"], inventory_data["airthings_client_secret"]
 
