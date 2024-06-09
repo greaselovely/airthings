@@ -7,7 +7,7 @@ from inventory import clear
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 
-CERT_PATH = os.getenv('REQUESTS_CA_BUNDLE')
+CERT_PATH = '/usr/local/share/ca-certificates/extra/cert_trust-decrypt.crt'
 
 print(f"Using CA Bundle at: {CERT_PATH}")
 
