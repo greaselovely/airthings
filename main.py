@@ -7,6 +7,11 @@ from inventory import clear
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 
+
+CERT_PATH = os.getenv('REQUESTS_CA_BUNDLE')
+
+print(f"Using CA Bundle at: {CERT_PATH}")
+
 inventory = "inventory.json"
 log_file_name = "airthings.log"
 home = os.path.expanduser('~')
