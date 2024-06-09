@@ -7,7 +7,6 @@ from inventory import clear
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 
-# Ensure the custom CA certificate path is set correctly
 CERT_PATH = os.getenv('REQUESTS_CA_BUNDLE')
 
 print(f"Using CA Bundle at: {CERT_PATH}")
