@@ -6,10 +6,10 @@ from pathlib import Path
 from inventory import clear
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
+import certifi
 
-# Use custom CA bundle path
-CERT_PATH = '/usr/local/share/ca-certificates/extra/cert_trust-decrypt.crt'
-os.environ['REQUESTS_CA_BUNDLE'] = CERT_PATH
+# Use certifi's CA bundle
+CERT_PATH = certifi.where()
 
 print(f"Using CA Bundle at: {CERT_PATH}")
 
