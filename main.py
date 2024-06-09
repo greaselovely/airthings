@@ -101,4 +101,61 @@ def process_device_data(location, room, device_data, thresholds, ntfy_url, is_su
         message = f"Battery Warning!\n{location} {room} is at {batt}%."
         send_ntfy_msg(ntfy_url, message)
 
-    if is_s
+    if is_sunday:
+        sunday_report += f"{location} {room} is {f_temp}°F, battery is {batt}%\n"
+    
+    return stale_message
+
+def main():
+    global airthings_client_id, airthings_client_secret, sunday_report
+    inventory_data = read_inventory('inventory.json')
+    
+    if not inventory_data:
+        logging.error("Inventory data is not available. Please check the file.")
+        return
+    send_ntfy_msg(inventory_data["ntfy_url"], "Script Started...")
+    
+    airthings_client_id, airthings_client_secret = inventory_data["airthings_client_id"], inventory_data["airthings_client_secret"]
+
+    thresholds = {
+        'freshness_threshold_seconds': 3600,
+        'f_temp_threshold': inventory_data["f_temp_threshold"],
+        'batt_threshold': inventory_data["battery_threshold"]
+    }
+
+    token = airthings_auth()
+    if not token:
+        logging.error("Failed to retrieve access token, terminating script.")
+        return
+    
+    api_headers = {"Authorization": f"Bearer {token}"}
+    now = datetime.now()
+    is_sunday = now.weekday() == 6 and now.hour == 17 and now.minute == 0
+    
+    stale_data_messages = []
+    sunday_report = "Weekly Report\n"
+
+    try:
+        for location, rooms in inventory_data["inventory"].items():
+            for room, device_id in rooms.items():
+                device_data = fetch_device_data(device_id, api_headers)
+                
+                if device_data:
+                    stale_message = process_device_data(location, room, device_data, thresholds, inventory_data["ntfy_url"], is_sunday)
+                    if stale_message:
+                        stale_data_messages.append(stale_message)
+                else:
+                    logging.error(f"No data received for device {device_id} in {location} {room}")
+        
+        if is_sunday:
+            send_ntfy_msg(inventory_data["ntfy_url"], sunday_report)
+
+        if stale_data_messages:
+            consolidated_message = "Stale Data Notification:\n" + "\n".join(stale_data_messages)
+            send_ntfy_msg(inventory_data["ntfy_url"], consolidated_message)
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error fetching device data: {e}")
+
+if __name__ == "__main__":
+    main()
