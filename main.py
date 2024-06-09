@@ -6,8 +6,9 @@ from pathlib import Path
 from inventory import clear
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
+import certifi
 
-# Set the CA certificate path explicitly
+# Use certifi for the CA bundle or explicitly set your custom path
 CERT_PATH = '/usr/local/share/ca-certificates/extra/cert_trust-decrypt.crt'
 
 print(f"Using CA Bundle at: {CERT_PATH}")
