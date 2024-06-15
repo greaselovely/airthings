@@ -91,7 +91,7 @@ def process_device_data(location, room, device_data, thresholds, ntfy_url, is_su
     stale_message = ""
     if is_data_stale(timestamp, thresholds['freshness_threshold_seconds']):
         circle = RED_CIRCLE
-        stale_message = f"{location} {room} is not reporting."
+        stale_message = f"{location} {room} is stale {circle}."
     else:
         circle = GREEN_CIRCLE
     
