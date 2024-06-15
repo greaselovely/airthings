@@ -11,6 +11,9 @@ import certifi
 # Use certifi's CA bundle
 CERT_PATH = certifi.where()
 
+GREEN_CIRCLE = "\U0001F7E2"
+RED_CIRCLE = "\U0001F534"
+
 # print(f"Using CA Bundle at: {CERT_PATH}")
 
 inventory = "inventory.json"
@@ -45,7 +48,7 @@ def airthings_auth():
         token_response = requests.post(airthings_authorisation_url, data=token_req_payload, allow_redirects=False, auth=(airthings_client_id, airthings_client_secret), verify=CERT_PATH)
         token_response.raise_for_status()
         token = token_response.json().get("access_token")
-        print("Token retrieved successfully:", token)  # Debugging information
+        # print("Token retrieved successfully:", token)  # Debugging information
         return token
     except requests.exceptions.RequestException as e:
         logging.error(f"Failed to obtain Airthings access token: {e}")
@@ -64,8 +67,9 @@ def is_data_stale(timestamp: int, freshness_threshold_seconds: int = 3600) -> bo
     data_age_seconds = current_time - timestamp
     return data_age_seconds >= freshness_threshold_seconds
 
-def console_output(location, room, c_temp, f_temp, humi, batt):
+def console_output(location, room, c_temp, f_temp, humi, batt, circle):
     print(f"\t{location} {room}:")
+    print(f"\t  Online: {circle}")
     print(f"\t  Temp: {f_temp}°F / {c_temp}°C")
     print(f"\t  Humidity: {humi}%")
     print(f"\t  Battery: {batt}%")
@@ -86,11 +90,14 @@ def process_device_data(location, room, device_data, thresholds, ntfy_url, is_su
     
     stale_message = ""
     if is_data_stale(timestamp, thresholds['freshness_threshold_seconds']):
+        circle = RED_CIRCLE
         stale_message = f"{location} {room} is not reporting."
+    else:
+        circle = GREEN_CIRCLE
     
     f_temp = (c_temp * 9 / 5) + 32
     f_temp = float(f"{f_temp:0.2f}")
-    console_output(location, room, c_temp, f_temp, humi, batt)
+    console_output(location, room, c_temp, f_temp, humi, batt, circle)
     logging.info(f"{location} {room} - Temp:{f_temp} Humidity:{humi} Batt:{batt}")
 
     if f_temp <= thresholds['f_temp_threshold']:
@@ -102,7 +109,7 @@ def process_device_data(location, room, device_data, thresholds, ntfy_url, is_su
         send_ntfy_msg(ntfy_url, message)
 
     if is_sunday:
-        sunday_report += f"{location} {room} is {f_temp}°F, battery is {batt}%\n"
+        sunday_report += f"{location} {room} {circle} @ {f_temp}°F, battery is {batt}%\n"
     
     return stale_message
 
